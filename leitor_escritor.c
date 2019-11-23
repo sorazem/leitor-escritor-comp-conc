@@ -9,20 +9,48 @@
 #include <semaphore.h>
 #include <time.h>
 
-int e = 0, l = 0, compartilhada;// variáveis globais
-sem_t mutex_e, escr, leit; // semáforos
+int e = 0, l = 0; // quantidade de escritores e leitores trabalhando
+int compartilhada; // variavel onde vai ser escrita e lida pelas threads
+sem_t mutex_e, mutex_l, escr, leit; // semáforos
 FILE *arq_log; // arquivo de arq_log
 
 void *le() {
+	sem_wait(&leit);
+	sem_wait(&mutex_l);
+	l++;
+	if(l==1) sem_wait(&escr);
+	sem_post(&mutex_l);
+	sem_post(&leit);
+
+	sem_wait(&mutex_l);
+	printf("compartilhada = %d\n", compartilhada);
+	sem_post(&mutex_l);
+
+	sem_wait(&mutex_l);
+	l--;
+	if(l==0) sem_post(&escr);
+	sem_post(&mutex_l);
 	
+	pthread_exit(NULL);
 }
 
 void *escreve(void* tid) {
 	int id = *(int*) tid;
+
 	sem_wait(&mutex_e);
+	e++;
+	if(e==1) sem_wait(&leit);
+	sem_post(&mutex_e);
+	sem_wait(&escr);
+	
 	printf("Escritor %d vai escrever\n", id);
 	compartilhada = id;
 	printf("%d\n", compartilhada);
+
+	sem_post(&escr);
+	sem_wait(&mutex_e); 
+	e--;
+	if(e==0) sem_post(&leit);
 	sem_post(&mutex_e);
 	
 	pthread_exit(NULL);
@@ -50,6 +78,7 @@ int main(int argc, char *argv[]) {
 	num_escritas = atoi(argv[4]); // quantidade de escritas
 	
 	sem_init(&mutex_e, 0, 1);
+	sem_init(&mutex_l, 0, 1);
 	
 	tid_sis_e = malloc(e*sizeof(pthread_t));
 	if(!tid_sis_e) {
@@ -74,6 +103,9 @@ int main(int argc, char *argv[]) {
 			printf("Erro join\n");
 		}
 	}
+
+	sem_destroy(&mutex_e);
+	sem_destroy(&mutex_l);
 	
 	fclose(arq_log);
 	
