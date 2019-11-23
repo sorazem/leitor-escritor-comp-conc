@@ -9,7 +9,7 @@
 #include <semaphore.h>
 #include <time.h>
 
-int e = 0, l = 0, compartilhada; // variáveis globais
+int e = 0, l = 0, compartilhada;// variáveis globais
 sem_t mutex_e, escr, leit; // semáforos
 FILE *arq_log; // arquivo de arq_log
 
