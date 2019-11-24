@@ -8,16 +8,29 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <time.h>
+#include <string.h>
 
+int num_escritas, num_leituras;
 int e = 0, l = 0; // quantidade de escritores e leitores trabalhando
 int compartilhada; // variavel onde vai ser escrita e lida pelas threads
 sem_t mutex_e, mutex_l, escr, leit; // semáforos
-FILE *arq_log; // arquivo de arq_log
+FILE *arq_log; // arquivo de log
 
 void *le(void *tid) {
-	int id = *(int*)tid;
-
-	while(1) {
+	int i = 0;
+	int id = *(int *) tid;
+	
+	FILE *arq_leitor; // arquivo para o leitor
+	char nome[] = "X.txt"; // padrão de nome
+	nome[0] = id + '0'; // muda o nome de acordo com o id da thread
+	
+	arq_leitor = fopen(nome, "a"); // Abriu arquivo para gravação no final do arquivo.
+	if(!arq_leitor){
+		printf("Erro ao abrir o arquivo do leitor.\n");
+		exit(-1);
+	}
+	
+	while(i < num_leituras) {
 		sem_wait(&leit);
 		sem_wait(&mutex_l);
 		l++;
@@ -26,37 +39,46 @@ void *le(void *tid) {
 		sem_post(&leit);
 
 		sem_wait(&mutex_l);
-		printf("compartilhada = %d\n", compartilhada);
+
+		printf("Leitor %d leu %d\n", id, compartilhada);
+		putc(compartilhada + '0', arq_leitor);
+
 		sem_post(&mutex_l);
 
 		sem_wait(&mutex_l);
 		l--;
 		if(l==0) sem_post(&escr);
 		sem_post(&mutex_l);
+		
+		i++;
 	}
+	
+	fclose(arq_leitor);
 		
 	pthread_exit(NULL);
 }
 
 void *escreve(void* tid) {
 	int id = *(int*) tid;
+	int i = 0;
 
-	while(1) {
+	while(i < num_escritas) {
 		sem_wait(&mutex_e);
 		e++;
 		if(e==1) sem_wait(&leit);
 		sem_post(&mutex_e);
 		sem_wait(&escr);
 		
-		printf("Escritor %d vai escrever\n", id);
+		printf("Escritor %d vai escrever seu id\n", id);
 		compartilhada = id;
-		printf("%d\n", compartilhada);
 
 		sem_post(&escr);
 		sem_wait(&mutex_e); 
 		e--;
 		if(e==0) sem_post(&leit);
 		sem_post(&mutex_e);
+		
+		i++;
 	}
 	
 	pthread_exit(NULL);
@@ -64,7 +86,7 @@ void *escreve(void* tid) {
 
 int main(int argc, char *argv[]) {
 	pthread_t *tid_sis_e, *tid_sis_l;
-	int e, l, num_escritas, num_leituras, *tid;
+	int e, l, *tid;
 	int i;
 	
 	if(argc < 5) {
@@ -85,11 +107,33 @@ int main(int argc, char *argv[]) {
 	
 	sem_init(&mutex_e, 0, 1);
 	sem_init(&mutex_l, 0, 1);
+	sem_init(&leit, 0, 1);
+	sem_init(&escr, 0, 1);
 	
 	tid_sis_e = malloc(e*sizeof(pthread_t));
 	if(!tid_sis_e) {
 		printf("Erro de malloc no tid_sis_e\n");
 		exit(-1);
+	}
+	
+	tid_sis_l = malloc(l*sizeof(pthread_t));
+	if(!tid_sis_l) {
+		printf("Erro de malloc no tid_sis_l\n");
+		exit(-1);
+	}
+	
+	for(i = 0; i < l; i++) {
+		tid = malloc(sizeof(int));
+		if(!tid) {
+			printf("Erro de malloc na tid\n");
+			exit(-1);
+		}
+		*tid = i;
+
+		if(pthread_create(&tid_sis_l[i], NULL, le, (void*)tid)) {
+			printf("Erro ao criar a thread %d.\n", l);
+			exit(-1);
+		}
 	}
 	
 	for(i = 0; i < e; i++) {
@@ -102,26 +146,6 @@ int main(int argc, char *argv[]) {
 		
 		if(pthread_create(&tid_sis_e[i], NULL, escreve, (void*)tid)){
 			printf("Erro ao criar a thread %d.\n", i);
-			exit(-1);
-		}
-	}
-
-	tid_sis_l = malloc(l*sizeof(pthread_t));
-	if(!tid_sis_l) {
-		printf("Erro de malloc no tid_sis_l\n");
-		exit(-1);
-	}
-
-	for(i = 0; i < l; i++) {
-		tid = malloc(sizeof(int));
-		if(!tid) {
-			printf("Erro de malloc na tid\n");
-			exit(-1);
-		}
-		*tid = i;
-
-		if(pthread_create(&tid_sis_l[i], NULL, le, (void*)tid)) {
-			printf("Erro ao criar a thread %d.\n", l);
 			exit(-1);
 		}
 	}
@@ -142,6 +166,8 @@ int main(int argc, char *argv[]) {
 
 	sem_destroy(&mutex_e);
 	sem_destroy(&mutex_l);
+	sem_destroy(&leit);
+	sem_destroy(&escr);
 	
 	fclose(arq_log);
 	
