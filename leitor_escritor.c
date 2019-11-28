@@ -9,62 +9,110 @@
 #include <semaphore.h>
 #include <time.h>
 
+int e, l;
+
 int compartilhada = 0; // variavel onde vai ser escrita e lida pelas threads
-sem_t mutex; // semáforo para mutex da variavel 'compartilhada'
-sem_t queue_in, queue_out; // semáforos para fila de entrada e fila de saída no 'working room'
-sem_t escr; // semáforo para escritoras
-int l_onreading = 0; // quantidade de leitoras lendo 
-int e_onwaiting = 0; // quantidade de escritoras esperando
+pthread_mutex_t mutex_leit, fila_chegada, fila_recurso;
+int leitoras = 0;
+
+pthread_cond_t bar_leit, bar_escr;
+pthread_mutex_t mutex_bar_leit, mutex_bar_escr;
+int leit_esp = 0, escr_esp = 0;
+
 FILE *arq_log; // arquivo de arq_log
 
-void *le(void *tid) {
+void barreiraLeitora() {
+	pthread_mutex_lock(&mutex_bar_leit);
+	leit_esp++;
+	if(leit_esp < l) {
+		pthread_cond_wait(&bar_leit, &mutex_bar_leit);
+	} else {
+		leit_esp = 0;
+		pthread_cond_broadcast(&bar_leit);
+	}
+	pthread_mutex_unlock(&mutex_bar_leit);
+}
+
+void entraLeitora(int id) {
+	pthread_mutex_lock(&fila_chegada);
+	pthread_mutex_lock(&mutex_leit);
+	if (leitoras == 0)
+		pthread_mutex_lock(&fila_recurso);        
+	leitoras++;
+	pthread_mutex_unlock(&fila_chegada);
+	printf("EntraLeitora(%d)\n", id);
+	pthread_mutex_unlock(&mutex_leit);
+}
+
+void saiLeitora(int id) {
+	pthread_mutex_lock(&mutex_leit);
+	leitoras--;
+	if (leitoras == 0)
+		pthread_mutex_unlock(&fila_recurso);
+	printf("SaiLeitora(%d)\n", id);
+	pthread_mutex_unlock(&mutex_leit);
+}
+
+void *Le(void *tid) {
 	int id = *(int*)tid;
 	int i = 0;
 
 	while(1) {
 		i++;
-		sem_wait(&queue_in);
-		l_onreading++;
-		sem_post(&queue_in);
 
-		sem_wait(&mutex);
-		printf("Leitora %d lendo compartilhada = %d, i = %d\n", id, compartilhada, i);
-		sem_post(&mutex);
+		entraLeitora(id);
 
-		sem_wait(&queue_out);
-		l_onreading--;
-		if(e_onwaiting && !l_onreading) {
-			sem_post(&escr);
-		}
-		sem_post(&queue_out);
+        //printf("Leitora %d lendo compartilhada = %d, i = %d\n", id, compartilhada, i);
+		printf("Le(%d)\n", compartilhada);
+
+		saiLeitora(id);
+
+		barreiraLeitora();
 	}
 		
 	pthread_exit(NULL);
 }
 
-void *escreve(void* tid) {
+void barreiraEscritora() {
+	pthread_mutex_lock(&mutex_bar_escr);
+	escr_esp++;
+	if(escr_esp < e) {
+		pthread_cond_wait(&bar_escr, &mutex_bar_escr);
+	} else {
+		escr_esp = 0;
+		pthread_cond_broadcast(&bar_escr);
+	}
+	pthread_mutex_unlock(&mutex_bar_escr);
+}
+
+void entraEscritora(int id) {
+	pthread_mutex_lock(&fila_chegada);
+	pthread_mutex_lock(&fila_recurso);
+	pthread_mutex_unlock(&fila_chegada);
+	printf("EntraEscritora(%d)\n", id);
+}
+
+void saiEscritora(int id) {
+	printf("SaiEscritora(%d)\n", id);
+	pthread_mutex_unlock(&fila_recurso);
+}
+
+void *Escreve(void* tid) {
 	int id = *(int*) tid;
 	int i = 0;
 
 	while(1) {
-		i++;
-		sem_wait(&queue_in);
-		sem_wait(&queue_out);
-		if(!l_onreading) {
-			sem_post(&queue_out);
-		} else {
-			e_onwaiting = 1;
-			sem_post(&queue_out);
-			sem_wait(&escr);
-			e_onwaiting = 0;
-		}
-		
-		sem_wait(&mutex);
-		printf("Escritor %d vai escrever seu id, i = %d\n", id, i);
-		compartilhada = id;
-		sem_post(&mutex);
+        i++;
 
-		sem_post(&queue_in);
+		entraEscritora(id);
+        
+        //printf("Escritor %d vai escrever seu id, i = %d\n", id, i);
+		printf("Escreve(%d)\n", id);
+		compartilhada = id;
+
+		saiEscritora(id);
+
+		barreiraEscritora();
 	}
 	
 	pthread_exit(NULL);
@@ -72,7 +120,7 @@ void *escreve(void* tid) {
 
 int main(int argc, char *argv[]) {
 	pthread_t *tid_sis_e, *tid_sis_l;
-	int e, l, num_escritas, num_leituras, *tid;
+	int num_escritas, num_leituras, *tid;
 	int i;
 	
 	if(argc < 5) {
@@ -91,11 +139,15 @@ int main(int argc, char *argv[]) {
 	num_leituras = atoi(argv[3]); // quantidade de leituras
 	num_escritas = atoi(argv[4]); // quantidade de escritas
 	
-	sem_init(&mutex, 0, 1);
-	sem_init(&queue_in, 0, 1);
-	sem_init(&queue_out, 0, 1);
-	sem_init(&escr, 0, 0);
-	
+	pthread_mutex_init(&mutex_leit, NULL);
+	pthread_mutex_init(&fila_chegada, NULL);
+	pthread_mutex_init(&fila_recurso, NULL);
+
+	pthread_cond_init(&bar_leit, NULL);
+	pthread_cond_init(&bar_escr, NULL);
+	pthread_mutex_init(&mutex_bar_leit, NULL);
+	pthread_mutex_init(&mutex_bar_escr, NULL);
+
 	tid_sis_e = malloc(e*sizeof(pthread_t));
 	if(!tid_sis_e) {
 		printf("Erro de malloc no tid_sis_e\n");
@@ -117,7 +169,7 @@ int main(int argc, char *argv[]) {
 		}
 		*tid = i;
 
-		if(pthread_create(&tid_sis_l[i], NULL, le, (void*)tid)) {
+		if(pthread_create(&tid_sis_l[i], NULL, Le, (void*)tid)) {
 			printf("Erro ao criar a thread %d.\n", l);
 			exit(-1);
 		}
@@ -131,7 +183,7 @@ int main(int argc, char *argv[]) {
 		}
 		*tid = i;
 		
-		if(pthread_create(&tid_sis_e[i], NULL, escreve, (void*)tid)){
+		if(pthread_create(&tid_sis_e[i], NULL, Escreve, (void*)tid)){
 			printf("Erro ao criar a thread %d.\n", i);
 			exit(-1);
 		}
@@ -151,10 +203,9 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	sem_destroy(&mutex);
-	sem_destroy(&queue_in);
-	sem_destroy(&queue_out);
-	sem_destroy(&escr);
+	pthread_mutex_destroy(&mutex_leit);
+	pthread_mutex_destroy(&fila_chegada);
+	pthread_mutex_destroy(&fila_recurso);
 	
 	fclose(arq_log);
 	
