@@ -1,0 +1,2 @@
+def EntraEscritora():
+    print('fon')

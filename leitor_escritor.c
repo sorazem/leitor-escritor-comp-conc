@@ -8,8 +8,10 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <time.h>
+#include <string.h>
 
 int e, l;
+int num_escritas, num_leituras;
 
 int compartilhada = 0; // variavel onde vai ser escrita e lida pelas threads
 pthread_mutex_t mutex_leit, fila_chegada, fila_recurso;
@@ -36,11 +38,14 @@ void barreiraLeitora() {
 void entraLeitora(int id) {
 	pthread_mutex_lock(&fila_chegada);
 	pthread_mutex_lock(&mutex_leit);
-	if (leitoras == 0)
-		pthread_mutex_lock(&fila_recurso);        
+	if (leitoras == 0){
+		fprintf(arq_log, "LeitoraPedindoAcessoRecurso(%d)\n", id);
+		pthread_mutex_lock(&fila_recurso);
+		fprintf(arq_log, "LeitoraTeveAcessoRecurso(%d)\n", id);
+	}     
 	leitoras++;
 	pthread_mutex_unlock(&fila_chegada);
-	printf("EntraLeitora(%d)\n", id);
+	fprintf(arq_log, "EntraLeitora(%d)\n", id);
 	pthread_mutex_unlock(&mutex_leit);
 }
 
@@ -49,26 +54,39 @@ void saiLeitora(int id) {
 	leitoras--;
 	if (leitoras == 0)
 		pthread_mutex_unlock(&fila_recurso);
-	printf("SaiLeitora(%d)\n", id);
+	fprintf(arq_log, "SaiLeitora(%d)\n", id);
 	pthread_mutex_unlock(&mutex_leit);
 }
 
 void *Le(void *tid) {
-	int id = *(int*)tid;
 	int i = 0;
+	int id = *(int *) tid;
+	
+	FILE *arq_leitor; // arquivo para o leitor
+	char nome[] = "X.txt"; // padrão de nome
+	nome[0] = id + '0'; // muda o nome de acordo com o id da thread
+	
+	arq_leitor = fopen(nome, "a"); // Abriu arquivo para gravação no final do arquivo.
+	if(!arq_leitor){
+		printf("Erro ao abrir o arquivo do leitor.\n");
+		exit(-1);
+	}
 
-	while(1) {
+	while(i < num_leituras) {
 		i++;
 
 		entraLeitora(id);
 
         //printf("Leitora %d lendo compartilhada = %d, i = %d\n", id, compartilhada, i);
-		printf("Le(%d)\n", compartilhada);
+		fprintf(arq_log, "Le(%d)\n", compartilhada);
+		putc(compartilhada + '0', arq_leitor);
 
 		saiLeitora(id);
 
 		barreiraLeitora();
 	}
+	
+	fclose(arq_leitor);
 		
 	pthread_exit(NULL);
 }
@@ -87,13 +105,14 @@ void barreiraEscritora() {
 
 void entraEscritora(int id) {
 	pthread_mutex_lock(&fila_chegada);
+	fprintf(arq_log, "EscritoraPedindoAcessoRecurso(%d)\n", id);
 	pthread_mutex_lock(&fila_recurso);
+	fprintf(arq_log, "EscritoraTeveAcessoRecurso(%d)\n", id);
 	pthread_mutex_unlock(&fila_chegada);
-	printf("EntraEscritora(%d)\n", id);
 }
 
 void saiEscritora(int id) {
-	printf("SaiEscritora(%d)\n", id);
+	fprintf(arq_log, "SaiEscritora(%d)\n", id);
 	pthread_mutex_unlock(&fila_recurso);
 }
 
@@ -101,13 +120,13 @@ void *Escreve(void* tid) {
 	int id = *(int*) tid;
 	int i = 0;
 
-	while(1) {
+	while(i < num_escritas) {
         i++;
 
 		entraEscritora(id);
         
         //printf("Escritor %d vai escrever seu id, i = %d\n", id, i);
-		printf("Escreve(%d)\n", id);
+		fprintf(arq_log, "Escreve(%d)\n", id);
 		compartilhada = id;
 
 		saiEscritora(id);
@@ -120,7 +139,7 @@ void *Escreve(void* tid) {
 
 int main(int argc, char *argv[]) {
 	pthread_t *tid_sis_e, *tid_sis_l;
-	int num_escritas, num_leituras, *tid;
+	int *tid;
 	int i;
 	
 	if(argc < 5) {
@@ -128,7 +147,7 @@ int main(int argc, char *argv[]) {
 		return 1;
    }
 
-	arq_log = fopen(argv[5], "r");
+	arq_log = fopen(argv[5], "w+");
 	if(!arq_log) {
 		fprintf(stderr, "Erro ao abrir o arquivo de log.\n");
 		return 1;
@@ -155,12 +174,13 @@ int main(int argc, char *argv[]) {
 	}
 
 
+	
 	tid_sis_l = malloc(l*sizeof(pthread_t));
 	if(!tid_sis_l) {
 		printf("Erro de malloc no tid_sis_l\n");
 		exit(-1);
 	}
-
+	
 	for(i = 0; i < l; i++) {
 		tid = malloc(sizeof(int));
 		if(!tid) {
