@@ -141,17 +141,31 @@ int main(int argc, char *argv[]) {
 	pthread_t *tid_sis_e, *tid_sis_l;
 	int *tid;
 	int i;
+
+	char ch;
+	FILE *source;
 	
 	if(argc < 5) {
 		fprintf(stderr, "Digite: %s <quantidade de leitores> <quantidade de escritores> <numero de leituras> <numero de escrituras> <arquivo de log>.\n", argv[0]);
 		return 1;
    }
 
+   	source = fopen("auxiliar.py", "r");
+	if(!source) {
+		fprintf(stderr, "Erro ao abrir o auxiliar.py.\n");
+		return 1;
+	}
+
 	arq_log = fopen(argv[5], "w+");
 	if(!arq_log) {
 		fprintf(stderr, "Erro ao abrir o arquivo de log.\n");
 		return 1;
 	}
+
+	while( ( ch = fgetc(source) ) != EOF )
+		fputc(ch, arq_log);
+
+	fclose(source);
 	
 	l = atoi(argv[1]); // número de leitores
 	e = atoi(argv[2]); // número de escritores

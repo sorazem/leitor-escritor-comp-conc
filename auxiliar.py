@@ -1,2 +1,6 @@
+x = 0
+
 def EntraEscritora():
-    print('fon')
+    global x
+    x = x + 1
+    print(x)
