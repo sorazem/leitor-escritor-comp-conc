@@ -80,7 +80,6 @@ void saiLeitora(int id) {
 	leitoras--;
 	if (leitoras == 0)
 		pthread_mutex_unlock(&fila_recurso);
-	//fprintf(arq_log, "SaiLeitora(%d)\n", id);
 	pthread_mutex_unlock(&mutex_leit);
 }
 
@@ -169,7 +168,6 @@ void entraEscritora(int id) {
  * @param int	numero identificador da thread que está passando
  */
 void saiEscritora(int id) {
-	//fprintf(arq_log, "SaiEscritora(%d)\n", id);
 	pthread_mutex_unlock(&fila_recurso);
 }
 
