@@ -244,6 +244,7 @@ int main(int argc, char *argv[]) {
 	pthread_mutex_destroy(&fila_chegada);
 	pthread_mutex_destroy(&fila_recurso);
 	
+	fprintf(arq_log, "print('Execucao efetuada com sucesso!')");
 	fclose(arq_log);
 	
 	return 0;
