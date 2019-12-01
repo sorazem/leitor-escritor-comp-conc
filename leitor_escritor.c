@@ -23,29 +23,31 @@ int leit_esp = 0, escr_esp = 0;
 
 FILE *arq_log; // arquivo de arq_log
 
-void barreiraLeitora() {
+void barreiraLeitora(int id) {
 	pthread_mutex_lock(&mutex_bar_leit);
 	leit_esp++;
 	if(leit_esp < l) {
+		fprintf(arq_log, "LeitoraEstaNaBarreira(%d)\n", id);
 		pthread_cond_wait(&bar_leit, &mutex_bar_leit);
 	} else {
 		leit_esp = 0;
 		pthread_cond_broadcast(&bar_leit);
+		fprintf(arq_log, "BroadcastLeitoras(%d)\n", l);
 	}
 	pthread_mutex_unlock(&mutex_bar_leit);
+	fprintf(arq_log, "LeitoraSaiuDaBarreira(%d)\n", id);
 }
 
 void entraLeitora(int id) {
+	fprintf(arq_log, "LeitoraEntrouNaFila(%d)\n", id);
 	pthread_mutex_lock(&fila_chegada);
 	pthread_mutex_lock(&mutex_leit);
 	if (leitoras == 0){
 		fprintf(arq_log, "LeitoraPedindoAcessoRecurso(%d)\n", id);
 		pthread_mutex_lock(&fila_recurso);
-		fprintf(arq_log, "LeitoraTeveAcessoRecurso(%d)\n", id);
 	}     
 	leitoras++;
 	pthread_mutex_unlock(&fila_chegada);
-	fprintf(arq_log, "EntraLeitora(%d)\n", id);
 	pthread_mutex_unlock(&mutex_leit);
 }
 
@@ -83,7 +85,7 @@ void *Le(void *tid) {
 
 		saiLeitora(id);
 
-		barreiraLeitora();
+		barreiraLeitora(id);
 	}
 	
 	fclose(arq_leitor);
@@ -91,28 +93,31 @@ void *Le(void *tid) {
 	pthread_exit(NULL);
 }
 
-void barreiraEscritora() {
+void barreiraEscritora(int id) {
 	pthread_mutex_lock(&mutex_bar_escr);
 	escr_esp++;
 	if(escr_esp < e) {
+		fprintf(arq_log, "EscritoraEstaNaBarreira(%d)\n", id);
 		pthread_cond_wait(&bar_escr, &mutex_bar_escr);
 	} else {
 		escr_esp = 0;
 		pthread_cond_broadcast(&bar_escr);
+		fprintf(arq_log, "BroadcastEscritoras(%d)\n", e);
 	}
 	pthread_mutex_unlock(&mutex_bar_escr);
+	fprintf(arq_log, "EscritoraSaiuDaBarreira(%d)\n", id);
 }
 
 void entraEscritora(int id) {
+	fprintf(arq_log, "EscritoraEntrouNaFila(%d)\n", id);
 	pthread_mutex_lock(&fila_chegada);
 	fprintf(arq_log, "EscritoraPedindoAcessoRecurso(%d)\n", id);
 	pthread_mutex_lock(&fila_recurso);
-	fprintf(arq_log, "EscritoraTeveAcessoRecurso(%d)\n", id);
 	pthread_mutex_unlock(&fila_chegada);
 }
 
 void saiEscritora(int id) {
-	fprintf(arq_log, "SaiEscritora(%d)\n", id);
+	//fprintf(arq_log, "SaiEscritora(%d)\n", id);
 	pthread_mutex_unlock(&fila_recurso);
 }
 
@@ -131,7 +136,7 @@ void *Escreve(void* tid) {
 
 		saiEscritora(id);
 
-		barreiraEscritora();
+		barreiraEscritora(id);
 	}
 	
 	pthread_exit(NULL);
