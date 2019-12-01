@@ -25,9 +25,9 @@ FILE *arq_log; // arquivo de arq_log
 
 void barreiraLeitora(int id) {
 	pthread_mutex_lock(&mutex_bar_leit);
+	fprintf(arq_log, "LeitoraEstaNaBarreira(%d)\n", id);
 	leit_esp++;
 	if(leit_esp < l) {
-		fprintf(arq_log, "LeitoraEstaNaBarreira(%d)\n", id);
 		pthread_cond_wait(&bar_leit, &mutex_bar_leit);
 	} else {
 		leit_esp = 0;
@@ -35,7 +35,6 @@ void barreiraLeitora(int id) {
 		fprintf(arq_log, "BroadcastLeitoras(%d)\n", l);
 	}
 	pthread_mutex_unlock(&mutex_bar_leit);
-	fprintf(arq_log, "LeitoraSaiuDaBarreira(%d)\n", id);
 }
 
 void entraLeitora(int id) {
@@ -56,7 +55,7 @@ void saiLeitora(int id) {
 	leitoras--;
 	if (leitoras == 0)
 		pthread_mutex_unlock(&fila_recurso);
-	fprintf(arq_log, "SaiLeitora(%d)\n", id);
+	//fprintf(arq_log, "SaiLeitora(%d)\n", id);
 	pthread_mutex_unlock(&mutex_leit);
 }
 
@@ -95,9 +94,9 @@ void *Le(void *tid) {
 
 void barreiraEscritora(int id) {
 	pthread_mutex_lock(&mutex_bar_escr);
+	fprintf(arq_log, "EscritoraEstaNaBarreira(%d)\n", id);
 	escr_esp++;
 	if(escr_esp < e) {
-		fprintf(arq_log, "EscritoraEstaNaBarreira(%d)\n", id);
 		pthread_cond_wait(&bar_escr, &mutex_bar_escr);
 	} else {
 		escr_esp = 0;
@@ -105,7 +104,6 @@ void barreiraEscritora(int id) {
 		fprintf(arq_log, "BroadcastEscritoras(%d)\n", e);
 	}
 	pthread_mutex_unlock(&mutex_bar_escr);
-	fprintf(arq_log, "EscritoraSaiuDaBarreira(%d)\n", id);
 }
 
 void entraEscritora(int id) {
