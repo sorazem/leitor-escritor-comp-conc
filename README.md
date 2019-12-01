@@ -14,5 +14,12 @@ gcc -o <name_of_executable> leitor_escritor.c -lpthread
 
 To run the program you need to give the following information:
 ```
-./<name_of_executable> <number of readers> <number of writers> <number of readings per thread> <number of writings per thread> <name of the log text file>
+./<name_of_executable> <number of readers> <number of writers> <number of readings per thread> <number of writings per thread> <name of the log file>
 ```
+**Attention! The log file must have python extension '.py'**
+
+To run the auxiliary program and see the correctness of execution, run:
+```
+python <name of the log file>
+```
+**Attention! The auxiliary program only will run if leitor_escritor was run before. The log file name must be the same as before too.**
