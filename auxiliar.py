@@ -53,7 +53,7 @@ def BroadcastEscritoras(e):
 def Escreve(x):
 	global compartilhada, fila_recurso, recurso_ocupado
 	if recurso_ocupado == 1:
-		print("ERRO--- Thread acessou o recurso quando nao devia.")
+		print("ERRO--- Thread escritora acessou o recurso quando nao devia.")
 		exit(1)
 	else:
 		fila_recurso = fila_recurso - 1
@@ -65,7 +65,7 @@ def Escreve(x):
 def Le(x):
 	global compartilhada, fila_recurso, recurso_ocupado
 	if recurso_ocupado == 1:
-		print("ERRO--- Thread acessou o recurso quando nao devia.")
+		print("ERRO--- Thread leitora acessou o recurso quando nao devia.")
 		exit(1)
 	else:
 		fila_recurso = fila_recurso - 1
